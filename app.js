@@ -1,5 +1,7 @@
 const STORAGE_KEY = "goals-tracker-v1";
 
+const NOTIFICATIONS_KEY = "goals-notifications-enabled";
+
 
 
 /** @typedef {{ id: string, title: string, deadline: string, createdAt: string, completed: boolean, completedAt: string | null }} Goal */
@@ -15,6 +17,12 @@ let filter = "active";
 let editingId = null;
 
 let tickTimer = null;
+
+/** @type {ReturnType<typeof setTimeout>[]} */
+
+let reminderTimeouts = [];
+
+let serviceWorkerRegistration = null;
 
 
 
@@ -33,6 +41,10 @@ const goalsList = document.getElementById("goals-list");
 const emptyState = document.getElementById("empty-state");
 
 const statsEl = document.getElementById("stats");
+
+const enableNotificationsBtn = document.getElementById("enable-notifications");
+
+const notificationStatusEl = document.getElementById("notification-status");
 
 
 
@@ -75,6 +87,16 @@ function init() {
   startTicker();
 
   render();
+
+  setupPwa();
+
+  setupNotificationsUi();
+
+  document.addEventListener("visibilitychange", () => {
+
+    if (document.visibilityState === "visible") scheduleReminders();
+
+  });
 
 }
 
@@ -265,6 +287,8 @@ function migrateGoals() {
 function saveGoals() {
 
   localStorage.setItem(STORAGE_KEY, JSON.stringify(goals));
+
+  scheduleReminders();
 
 }
 
@@ -1165,6 +1189,260 @@ function escapeHtml(str) {
   div.textContent = str;
 
   return div.innerHTML;
+
+}
+
+
+
+function notificationsSupported() {
+
+  return "Notification" in window && "serviceWorker" in navigator;
+
+}
+
+
+
+async function setupPwa() {
+
+  if (!("serviceWorker" in navigator)) return;
+
+  try {
+
+    serviceWorkerRegistration = await navigator.serviceWorker.register("sw.js");
+
+  } catch {
+
+    serviceWorkerRegistration = null;
+
+  }
+
+}
+
+
+
+function updateNotificationStatus() {
+
+  if (!notificationStatusEl) return;
+
+  if (!notificationsSupported()) {
+
+    notificationStatusEl.textContent = "Напоминания недоступны в этом браузере.";
+
+    if (enableNotificationsBtn) enableNotificationsBtn.disabled = true;
+
+    return;
+
+  }
+
+
+
+  if (localStorage.getItem(NOTIFICATIONS_KEY) === "1" && Notification.permission === "granted") {
+
+    notificationStatusEl.textContent = "Напоминания включены. Откроются на экране блокировки.";
+
+    if (enableNotificationsBtn) {
+
+      enableNotificationsBtn.textContent = "Перепланировать напоминания";
+
+      enableNotificationsBtn.disabled = false;
+
+    }
+
+    return;
+
+  }
+
+
+
+  if (Notification.permission === "denied") {
+
+    notificationStatusEl.textContent = "Доступ запрещён. Разрешите уведомления в Настройках iPhone → Safari → Уведомления.";
+
+    if (enableNotificationsBtn) enableNotificationsBtn.disabled = true;
+
+    return;
+
+  }
+
+
+
+  notificationStatusEl.textContent = "Сначала добавьте сайт на экран «Домой», затем включите напоминания.";
+
+  if (enableNotificationsBtn) {
+
+    enableNotificationsBtn.textContent = "Включить напоминания";
+
+    enableNotificationsBtn.disabled = false;
+
+  }
+
+}
+
+
+
+function setupNotificationsUi() {
+
+  updateNotificationStatus();
+
+  enableNotificationsBtn?.addEventListener("click", async () => {
+
+    const enabled = await requestNotifications();
+
+    if (enabled) scheduleReminders();
+
+    updateNotificationStatus();
+
+  });
+
+
+
+  if (localStorage.getItem(NOTIFICATIONS_KEY) === "1" && Notification.permission === "granted") {
+
+    scheduleReminders();
+
+  }
+
+}
+
+
+
+async function requestNotifications() {
+
+  if (!notificationsSupported()) return false;
+
+
+
+  const permission = await Notification.requestPermission();
+
+  if (permission !== "granted") {
+
+    updateNotificationStatus();
+
+    return false;
+
+  }
+
+
+
+  localStorage.setItem(NOTIFICATIONS_KEY, "1");
+
+  if (!serviceWorkerRegistration) await setupPwa();
+
+  return true;
+
+}
+
+
+
+function clearReminderTimeouts() {
+
+  for (const timeout of reminderTimeouts) clearTimeout(timeout);
+
+  reminderTimeouts = [];
+
+}
+
+
+
+function scheduleReminders() {
+
+  clearReminderTimeouts();
+
+  if (localStorage.getItem(NOTIFICATIONS_KEY) !== "1") return;
+
+  if (!notificationsSupported() || Notification.permission !== "granted") return;
+
+
+
+  const now = Date.now();
+
+  const maxDelay = 7 * 24 * 60 * 60 * 1000;
+
+
+
+  for (const goal of goals) {
+
+    if (goal.completed) continue;
+
+
+
+    const deadline = new Date(goal.deadline).getTime();
+
+    const reminders = [
+
+      { offset: 24 * 60 * 60 * 1000, title: "Завтра дедлайн", suffix: "остался 1 день" },
+
+      { offset: 60 * 60 * 1000, title: "Скоро дедлайн", suffix: "остался 1 час" },
+
+      { offset: 0, title: "Дедлайн сейчас", suffix: "пора выполнить цель" },
+
+    ];
+
+
+
+    for (const reminder of reminders) {
+
+      const fireAt = deadline - reminder.offset;
+
+      const delay = fireAt - now;
+
+      if (delay <= 0 || delay > maxDelay) continue;
+
+
+
+      const timeout = setTimeout(() => {
+
+        showGoalReminder(goal, reminder.title, reminder.suffix);
+
+      }, delay);
+
+
+
+      reminderTimeouts.push(timeout);
+
+    }
+
+  }
+
+}
+
+
+
+async function showGoalReminder(goal, title, suffix) {
+
+  if (Notification.permission !== "granted") return;
+
+
+
+  const body = `«${goal.title}» — ${suffix}`;
+
+  const options = {
+
+    body,
+
+    icon: "icon.svg",
+
+    badge: "icon.svg",
+
+    tag: `goal-${goal.id}-${title}`,
+
+    data: { url: "./" },
+
+  };
+
+
+
+  try {
+
+    const reg = serviceWorkerRegistration || (await navigator.serviceWorker.ready);
+
+    await reg.showNotification(title, options);
+
+  } catch {
+
+    new Notification(title, options);
+
+  }
 
 }
 

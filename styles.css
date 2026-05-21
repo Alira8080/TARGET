@@ -232,6 +232,78 @@ body {
 
 
 
+.card--install {
+
+  border-color: rgba(91, 141, 239, 0.35);
+
+  background: linear-gradient(180deg, rgba(91, 141, 239, 0.1), var(--surface) 55%);
+
+}
+
+
+
+.install__text {
+
+  margin: 0 0 0.85rem;
+
+  font-size: 0.9rem;
+
+  color: var(--text-muted);
+
+  line-height: 1.55;
+
+}
+
+
+
+.install__text strong {
+
+  color: var(--text);
+
+}
+
+
+
+.install__steps {
+
+  margin: 0 0 1rem;
+
+  padding-left: 1.2rem;
+
+  color: var(--text-muted);
+
+  font-size: 0.88rem;
+
+  line-height: 1.6;
+
+}
+
+
+
+.install__actions {
+
+  display: flex;
+
+  flex-direction: column;
+
+  gap: 0.55rem;
+
+}
+
+
+
+.install__status {
+
+  font-size: 0.82rem;
+
+  color: var(--text-muted);
+
+  line-height: 1.45;
+
+}
+
+
+
 .form__row {
 
   margin-bottom: 1rem;

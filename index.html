@@ -10,9 +10,23 @@
 
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
 
+  <meta name="theme-color" content="#5b8def" />
+
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+  <meta name="apple-mobile-web-app-title" content="Мои цели" />
+
   <title>Цели — обратный отсчёт</title>
 
-  <link rel="stylesheet" href="styles.css?v=3" />
+  <link rel="manifest" href="manifest.json" />
+
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+
+  <link rel="apple-touch-icon" href="icon.svg" />
+
+  <link rel="stylesheet" href="styles.css?v=4" />
 
 </head>
 
@@ -39,6 +53,42 @@
       <div class="stats" id="stats" aria-live="polite"></div>
 
     </header>
+
+
+
+    <section class="card card--install" aria-labelledby="install-heading">
+
+      <h2 id="install-heading" class="card__title">На экран iPhone</h2>
+
+      <p class="install__text">
+
+        Настоящий маленький виджет на iPhone для сайта сделать нельзя — это умеют только App Store-приложения.
+
+        Но можно поставить <strong>иконку на экран</strong> и включить <strong>напоминания на экране блокировки</strong>,
+
+        когда телефон закрыт.
+
+      </p>
+
+      <ol class="install__steps">
+
+        <li>Откройте сайт в <strong>Safari</strong></li>
+
+        <li>Нажмите <strong>Поделиться</strong> → <strong>На экран «Домой»</strong></li>
+
+        <li>Ниже нажмите <strong>Включить напоминания</strong></li>
+
+      </ol>
+
+      <div class="install__actions">
+
+        <button type="button" class="btn btn--primary" id="enable-notifications">Включить напоминания</button>
+
+        <span class="install__status" id="notification-status" aria-live="polite"></span>
+
+      </div>
+
+    </section>
 
 
 
@@ -138,7 +188,7 @@
 
 
 
-  <script src="app.js?v=3"></script>
+  <script src="app.js?v=4"></script>
 
 </body>
 
