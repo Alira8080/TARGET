@@ -26,7 +26,7 @@
 
   <link rel="apple-touch-icon" href="icon.svg" />
 
-  <link rel="stylesheet" href="styles.css?v=5" />
+  <link rel="stylesheet" href="styles.css?v=6" />
 
 </head>
 
@@ -56,39 +56,33 @@
 
 
 
-    <section class="card card--install" aria-labelledby="install-heading">
+    <section class="goals-section" aria-labelledby="goals-heading">
 
-      <h2 id="install-heading" class="card__title">На экран iPhone</h2>
+      <div class="goals-section__head">
 
-      <p class="install__text">
+        <h2 id="goals-heading" class="section-title">Активные цели</h2>
 
-        <strong>Иконка на экране не показывает напоминания внутри</strong> — это просто кнопка запуска.
+        <div class="filter" role="group" aria-label="Фильтр целей">
 
-        Сами напоминания приходят на <strong>экран блокировки</strong>, когда телефон закрыт.
+          <button type="button" class="filter__btn filter__btn--active" data-filter="active">Активные</button>
 
-      </p>
+          <button type="button" class="filter__btn" data-filter="completed">Выполненные</button>
 
-      <ol class="install__steps">
+          <button type="button" class="filter__btn" data-filter="all">Все</button>
 
-        <li>Откройте сайт в <strong>Safari</strong></li>
-
-        <li>Нажмите <strong>Поделиться</strong> → <strong>На экран «Домой»</strong></li>
-
-        <li>Ниже нажмите <strong>Включить напоминания</strong></li>
-
-      </ol>
-
-      <div class="install__actions">
-
-        <button type="button" class="btn btn--primary" id="enable-notifications">Включить напоминания</button>
-
-        <button type="button" class="btn btn--ghost" id="test-notification" hidden>Проверить уведомление</button>
-
-        <span class="install__status" id="notification-status" aria-live="polite"></span>
-
-        <div class="install__planned" id="notification-plan" hidden></div>
+        </div>
 
       </div>
+
+      <!-- Timeline bars are rendered per goal card in app.js (.goal-timeline) -->
+
+      <ul id="goals-list" class="goals-list" aria-live="polite"></ul>
+
+      <p id="empty-state" class="empty-state" hidden>
+
+        Пока нет целей. Добавьте первую цель ниже.
+
+      </p>
 
     </section>
 
@@ -156,33 +150,27 @@
 
 
 
-    <section class="goals-section" aria-labelledby="goals-heading">
+    <section class="card card--install" aria-labelledby="install-heading">
 
-      <div class="goals-section__head">
+      <h2 id="install-heading" class="card__title">Напоминания на iPhone</h2>
 
-        <h2 id="goals-heading" class="section-title">Активные цели</h2>
+      <p class="install__text">
 
-        <div class="filter" role="group" aria-label="Фильтр целей">
-
-          <button type="button" class="filter__btn filter__btn--active" data-filter="active">Активные</button>
-
-          <button type="button" class="filter__btn" data-filter="completed">Выполненные</button>
-
-          <button type="button" class="filter__btn" data-filter="all">Все</button>
-
-        </div>
-
-      </div>
-
-      <!-- Timeline bars are rendered per goal card in app.js (.goal-timeline) -->
-
-      <ul id="goals-list" class="goals-list" aria-live="polite"></ul>
-
-      <p id="empty-state" class="empty-state" hidden>
-
-        Пока нет целей. Добавьте первую цель выше.
+        Иконка на экране — это кнопка запуска. Напоминания приходят на <strong>экран блокировки</strong>.
 
       </p>
+
+      <div class="install__actions">
+
+        <button type="button" class="btn btn--primary" id="enable-notifications">Включить напоминания</button>
+
+        <button type="button" class="btn btn--ghost" id="test-notification" hidden>Проверить уведомление</button>
+
+        <span class="install__status" id="notification-status" aria-live="polite"></span>
+
+        <div class="install__planned" id="notification-plan" hidden></div>
+
+      </div>
 
     </section>
 
@@ -190,7 +178,7 @@
 
 
 
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=6"></script>
 
 </body>
 
