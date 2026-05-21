@@ -12,6 +12,8 @@ let goals = [];
 
 let filter = "active";
 
+let editingId = null;
+
 let tickTimer = null;
 
 
@@ -101,6 +103,92 @@ function formatDateInput(d) {
   const day = String(d.getDate()).padStart(2, "0");
 
   return `${y}-${m}-${day}`;
+
+}
+
+
+
+function formatTimeInput(d) {
+
+  const h = String(d.getHours()).padStart(2, "0");
+
+  const m = String(d.getMinutes()).padStart(2, "0");
+
+  return `${h}:${m}`;
+
+}
+
+
+
+function parseDeadlineFromInputs(date, time) {
+
+  if (!date || !time) {
+
+    return { deadline: null, error: "Укажите дату и время." };
+
+  }
+
+
+
+  const deadline = new Date(`${date}T${time}`);
+
+  if (Number.isNaN(deadline.getTime())) {
+
+    return { deadline: null, error: "Некорректная дата или время." };
+
+  }
+
+
+
+  if (deadline.getTime() <= Date.now()) {
+
+    return { deadline: null, error: "Новый дедлайн должен быть в будущем." };
+
+  }
+
+
+
+  return { deadline, error: null };
+
+}
+
+
+
+function getEditDeadlineDefaults(goal) {
+
+  const current = new Date(goal.deadline);
+
+  const status = getStatus(goal);
+
+
+
+  if (status === "overdue") {
+
+    const suggested = new Date();
+
+    suggested.setDate(suggested.getDate() + 7);
+
+    suggested.setHours(12, 0, 0, 0);
+
+    return {
+
+      date: formatDateInput(suggested),
+
+      time: formatTimeInput(suggested),
+
+    };
+
+  }
+
+
+
+  return {
+
+    date: formatDateInput(current),
+
+    time: formatTimeInput(current),
+
+  };
 
 }
 
@@ -210,21 +298,11 @@ function onSubmit(e) {
 
 
 
-  if (!date || !time) {
+  const parsed = parseDeadlineFromInputs(date, time);
 
-    showFormError("Укажите дату и время достижения.");
+  if (parsed.error) {
 
-    return;
-
-  }
-
-
-
-  const deadline = new Date(`${date}T${time}`);
-
-  if (Number.isNaN(deadline.getTime())) {
-
-    showFormError("Некорректная дата или время.");
+    showFormError(parsed.error === "Укажите дату и время." ? "Укажите дату и время достижения." : parsed.error);
 
     return;
 
@@ -232,13 +310,7 @@ function onSubmit(e) {
 
 
 
-  if (deadline.getTime() <= Date.now()) {
-
-    showFormError("Дедлайн должен быть в будущем.");
-
-    return;
-
-  }
+  const deadline = parsed.deadline;
 
 
 
@@ -324,6 +396,12 @@ function onListClick(e) {
 
   if (action === "restore") restoreGoal(id);
 
+  if (action === "edit-deadline") startEditDeadline(id);
+
+  if (action === "save-deadline") saveDeadline(id, btn.closest("[data-id]"));
+
+  if (action === "cancel-edit") cancelEditDeadline();
+
 }
 
 
@@ -366,7 +444,79 @@ function restoreGoal(id) {
 
 function deleteGoal(id) {
 
+  if (editingId === id) editingId = null;
+
   goals = goals.filter((g) => g.id !== id);
+
+  saveGoals();
+
+  render();
+
+}
+
+
+
+function startEditDeadline(id) {
+
+  const goal = goals.find((g) => g.id === id);
+
+  if (!goal || goal.completed) return;
+
+  editingId = id;
+
+  render();
+
+}
+
+
+
+function cancelEditDeadline() {
+
+  editingId = null;
+
+  render();
+
+}
+
+
+
+function saveDeadline(id, cardEl) {
+
+  const goal = goals.find((g) => g.id === id);
+
+  if (!goal || goal.completed || !cardEl) return;
+
+
+
+  const date = cardEl.querySelector("[data-edit-date]")?.value;
+
+  const time = cardEl.querySelector("[data-edit-time]")?.value;
+
+  const errorEl = cardEl.querySelector("[data-edit-error]");
+
+  const parsed = parseDeadlineFromInputs(date, time);
+
+
+
+  if (parsed.error) {
+
+    if (errorEl) {
+
+      errorEl.textContent = parsed.error;
+
+      errorEl.hidden = false;
+
+    }
+
+    return;
+
+  }
+
+
+
+  goal.deadline = parsed.deadline.toISOString();
+
+  editingId = null;
 
   saveGoals();
 
@@ -756,6 +906,60 @@ function render() {
 
 
 
+    const isEditing = editingId === goal.id;
+
+    const editDefaults = isEditing ? getEditDeadlineDefaults(goal) : null;
+
+
+
+    const editPanel = isEditing
+
+      ? `
+
+        <div class="goal-edit" data-edit-panel>
+
+          <p class="goal-edit__title">Новый дедлайн</p>
+
+          <p class="goal-edit__hint">${status === "overdue" ? "Цель просрочена — выберите новую дату и время." : "Измените дату или время достижения."}</p>
+
+          <div class="goal-edit__fields">
+
+            <div class="form__field">
+
+              <label class="form__label" for="edit-date-${goal.id}">Дата</label>
+
+              <input id="edit-date-${goal.id}" type="date" class="form__input" data-edit-date value="${editDefaults.date}" />
+
+            </div>
+
+            <div class="form__field">
+
+              <label class="form__label" for="edit-time-${goal.id}">Время</label>
+
+              <input id="edit-time-${goal.id}" type="time" class="form__input" data-edit-time value="${editDefaults.time}" />
+
+            </div>
+
+          </div>
+
+          <p class="goal-edit__error" data-edit-error role="alert" hidden></p>
+
+          <div class="goal-edit__actions">
+
+            <button type="button" class="btn btn--primary btn--compact" data-action="save-deadline">Сохранить</button>
+
+            <button type="button" class="btn btn--ghost btn--compact" data-action="cancel-edit">Отмена</button>
+
+          </div>
+
+        </div>
+
+      `
+
+      : "";
+
+
+
     const actions =
 
       status === "completed"
@@ -768,7 +972,13 @@ function render() {
 
         `
 
-        : `
+        : isEditing
+
+          ? ""
+
+          : `
+
+          <button type="button" class="btn btn--accent" data-action="edit-deadline">Изменить дедлайн</button>
 
           <button type="button" class="btn btn--success" data-action="complete">Отметить выполненной</button>
 
@@ -797,6 +1007,8 @@ function render() {
       <p class="goal-card__completed-msg">Цель достигнута!</p>
 
       ${countdownHtml}
+
+      ${editPanel}
 
       <div class="goal-card__actions">${actions}</div>
 

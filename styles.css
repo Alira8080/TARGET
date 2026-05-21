@@ -434,6 +434,124 @@ body {
 
 
 
+.btn--accent {
+
+  background: rgba(91, 141, 239, 0.16);
+
+  color: var(--accent-hover);
+
+  border: 1px solid rgba(91, 141, 239, 0.35);
+
+}
+
+
+
+.btn--accent:hover {
+
+  background: rgba(91, 141, 239, 0.28);
+
+}
+
+
+
+.btn--compact {
+
+  width: auto;
+
+  padding: 0.55rem 0.9rem;
+
+}
+
+
+
+.goal-edit {
+
+  margin: 0 0 0.9rem;
+
+  padding: 0.85rem;
+
+  border-radius: 12px;
+
+  background: var(--surface-2);
+
+  border: 1px solid var(--border);
+
+}
+
+
+
+.goal-edit__title {
+
+  margin: 0 0 0.25rem;
+
+  font-size: 0.92rem;
+
+  font-weight: 600;
+
+}
+
+
+
+.goal-edit__hint {
+
+  margin: 0 0 0.75rem;
+
+  font-size: 0.8rem;
+
+  color: var(--text-muted);
+
+}
+
+
+
+.goal-edit__fields {
+
+  display: grid;
+
+  grid-template-columns: 1fr 1fr;
+
+  gap: 0.75rem;
+
+  margin-bottom: 0.75rem;
+
+}
+
+
+
+.goal-edit__error {
+
+  margin: 0 0 0.75rem;
+
+  font-size: 0.85rem;
+
+  color: var(--danger);
+
+}
+
+
+
+.goal-edit__actions {
+
+  display: flex;
+
+  flex-wrap: wrap;
+
+  gap: 0.5rem;
+
+}
+
+
+
+.goal-card--overdue .goal-edit {
+
+  border-color: rgba(239, 107, 107, 0.35);
+
+  background: rgba(239, 107, 107, 0.08);
+
+}
+
+
+
 .goals-section__head {
 
   display: flex;
@@ -1097,6 +1215,14 @@ body {
   .goal-timeline__labels span:last-child {
 
     text-align: left;
+
+  }
+
+
+
+  .goal-edit__fields {
+
+    grid-template-columns: 1fr;
 
   }
 
