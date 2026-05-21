@@ -974,17 +974,45 @@ function render() {
 
         : isEditing
 
-          ? ""
+          ? `
+
+          <button type="button" class="btn btn--success" data-action="complete">Отметить выполненной</button>
+
+          <button type="button" class="btn btn--danger" data-action="delete">Удалить</button>
+
+        `
 
           : `
-
-          <button type="button" class="btn btn--accent" data-action="edit-deadline">Изменить дедлайн</button>
 
           <button type="button" class="btn btn--success" data-action="complete">Отметить выполненной</button>
 
           <button type="button" class="btn btn--danger" data-action="delete">Удалить</button>
 
         `;
+
+
+
+    const deadlineRow =
+
+      status === "completed"
+
+        ? `<p class="goal-card__deadline">Дедлайн: ${formatDeadline(goal.deadline)}</p>`
+
+        : isEditing
+
+          ? `<p class="goal-card__deadline">Дедлайн: ${formatDeadline(goal.deadline)}</p>`
+
+          : `
+
+      <div class="goal-card__deadline-row">
+
+        <p class="goal-card__deadline">Дедлайн: ${formatDeadline(goal.deadline)}</p>
+
+        <button type="button" class="btn btn--accent btn--compact btn--deadline" data-action="edit-deadline">Изменить дедлайн</button>
+
+      </div>
+
+    `;
 
 
 
@@ -998,7 +1026,7 @@ function render() {
 
       </div>
 
-      <p class="goal-card__deadline">Дедлайн: ${formatDeadline(goal.deadline)}</p>
+      ${deadlineRow}
 
       ${buildTimelineHtml(goal, status)}
 
