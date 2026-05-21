@@ -1,0 +1,931 @@
+const STORAGE_KEY = "goals-tracker-v1";
+
+
+
+/** @typedef {{ id: string, title: string, deadline: string, createdAt: string, completed: boolean, completedAt: string | null }} Goal */
+
+
+
+/** @type {Goal[]} */
+
+let goals = [];
+
+let filter = "active";
+
+let tickTimer = null;
+
+
+
+const form = document.getElementById("goal-form");
+
+const titleInput = document.getElementById("goal-title");
+
+const dateInput = document.getElementById("goal-date");
+
+const timeInput = document.getElementById("goal-time");
+
+const formError = document.getElementById("form-error");
+
+const goalsList = document.getElementById("goals-list");
+
+const emptyState = document.getElementById("empty-state");
+
+const statsEl = document.getElementById("stats");
+
+
+
+init();
+
+
+
+function init() {
+
+  loadGoals();
+
+  setDefaultDateTime();
+
+  form.addEventListener("submit", onSubmit);
+
+  goalsList.addEventListener("click", onListClick);
+
+
+
+  document.querySelectorAll(".filter__btn").forEach((btn) => {
+
+    btn.addEventListener("click", () => {
+
+      filter = btn.dataset.filter;
+
+      document.querySelectorAll(".filter__btn").forEach((b) => {
+
+        b.classList.toggle("filter__btn--active", b === btn);
+
+      });
+
+      render();
+
+    });
+
+  });
+
+
+
+  startTicker();
+
+  render();
+
+}
+
+
+
+function setDefaultDateTime() {
+
+  const now = new Date();
+
+  now.setDate(now.getDate() + 7);
+
+  dateInput.value = formatDateInput(now);
+
+  timeInput.value = "12:00";
+
+}
+
+
+
+function formatDateInput(d) {
+
+  const y = d.getFullYear();
+
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+
+  const day = String(d.getDate()).padStart(2, "0");
+
+  return `${y}-${m}-${day}`;
+
+}
+
+
+
+function loadGoals() {
+
+  try {
+
+    const raw = localStorage.getItem(STORAGE_KEY);
+
+    goals = raw ? JSON.parse(raw) : [];
+
+    if (!Array.isArray(goals)) goals = [];
+
+  } catch {
+
+    goals = [];
+
+  }
+
+  migrateGoals();
+
+}
+
+
+
+function inferCreatedAt(goal) {
+
+  if (/^\d{10,13}$/.test(String(goal.id))) {
+
+    const ms = String(goal.id).length > 13 ? parseInt(String(goal.id).slice(0, 13), 10) : parseInt(goal.id, 10);
+
+    const d = new Date(ms);
+
+    if (!Number.isNaN(d.getTime()) && d.getTime() > 0 && d.getTime() <= Date.now()) {
+
+      return d.toISOString();
+
+    }
+
+  }
+
+  return null;
+
+}
+
+
+
+function migrateGoals() {
+
+  let changed = false;
+
+  const fallback = new Date().toISOString();
+
+  for (const goal of goals) {
+
+    if (!goal.createdAt) {
+
+      goal.createdAt = inferCreatedAt(goal) || fallback;
+
+      changed = true;
+
+    }
+
+  }
+
+  if (changed) saveGoals();
+
+}
+
+
+
+function saveGoals() {
+
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(goals));
+
+}
+
+
+
+function onSubmit(e) {
+
+  e.preventDefault();
+
+  hideFormError();
+
+
+
+  const title = titleInput.value.trim();
+
+  const date = dateInput.value;
+
+  const time = timeInput.value;
+
+
+
+  if (!title) {
+
+    showFormError("Введите название цели.");
+
+    titleInput.focus();
+
+    return;
+
+  }
+
+
+
+  if (!date || !time) {
+
+    showFormError("Укажите дату и время достижения.");
+
+    return;
+
+  }
+
+
+
+  const deadline = new Date(`${date}T${time}`);
+
+  if (Number.isNaN(deadline.getTime())) {
+
+    showFormError("Некорректная дата или время.");
+
+    return;
+
+  }
+
+
+
+  if (deadline.getTime() <= Date.now()) {
+
+    showFormError("Дедлайн должен быть в будущем.");
+
+    return;
+
+  }
+
+
+
+  goals.unshift({
+
+    id: crypto.randomUUID(),
+
+    title,
+
+    deadline: deadline.toISOString(),
+
+    createdAt: new Date().toISOString(),
+
+    completed: false,
+
+    completedAt: null,
+
+  });
+
+
+
+  saveGoals();
+
+  form.reset();
+
+  setDefaultDateTime();
+
+  filter = "active";
+
+  document.querySelector('[data-filter="active"]')?.classList.add("filter__btn--active");
+
+  document.querySelectorAll('.filter__btn:not([data-filter="active"])').forEach((b) => {
+
+    b.classList.remove("filter__btn--active");
+
+  });
+
+  render();
+
+}
+
+
+
+function showFormError(msg) {
+
+  formError.textContent = msg;
+
+  formError.hidden = false;
+
+}
+
+
+
+function hideFormError() {
+
+  formError.hidden = true;
+
+  formError.textContent = "";
+
+}
+
+
+
+function onListClick(e) {
+
+  const btn = e.target.closest("[data-action]");
+
+  if (!btn) return;
+
+
+
+  const id = btn.closest("[data-id]")?.dataset.id;
+
+  if (!id) return;
+
+
+
+  const action = btn.dataset.action;
+
+  if (action === "complete") completeGoal(id);
+
+  if (action === "delete") deleteGoal(id);
+
+  if (action === "restore") restoreGoal(id);
+
+}
+
+
+
+function completeGoal(id) {
+
+  const goal = goals.find((g) => g.id === id);
+
+  if (!goal || goal.completed) return;
+
+  goal.completed = true;
+
+  goal.completedAt = new Date().toISOString();
+
+  saveGoals();
+
+  render();
+
+}
+
+
+
+function restoreGoal(id) {
+
+  const goal = goals.find((g) => g.id === id);
+
+  if (!goal) return;
+
+  goal.completed = false;
+
+  goal.completedAt = null;
+
+  saveGoals();
+
+  render();
+
+}
+
+
+
+function deleteGoal(id) {
+
+  goals = goals.filter((g) => g.id !== id);
+
+  saveGoals();
+
+  render();
+
+}
+
+
+
+function getStatus(goal) {
+
+  if (goal.completed) return "completed";
+
+  const diff = new Date(goal.deadline).getTime() - Date.now();
+
+  if (diff <= 0) return "overdue";
+
+  return "upcoming";
+
+}
+
+
+
+function getCountdown(deadlineIso) {
+
+  const diff = Math.max(0, new Date(deadlineIso).getTime() - Date.now());
+
+  const totalSec = Math.floor(diff / 1000);
+
+  const days = Math.floor(totalSec / 86400);
+
+  const hours = Math.floor((totalSec % 86400) / 3600);
+
+  const minutes = Math.floor((totalSec % 3600) / 60);
+
+  const seconds = totalSec % 60;
+
+  return { days, hours, minutes, seconds };
+
+}
+
+
+
+function formatDeadline(iso) {
+
+  return new Date(iso).toLocaleString("ru-RU", {
+
+    day: "numeric",
+
+    month: "long",
+
+    year: "numeric",
+
+    hour: "2-digit",
+
+    minute: "2-digit",
+
+  });
+
+}
+
+
+
+function pad(n) {
+
+  return String(n).padStart(2, "0");
+
+}
+
+
+
+function formatDurationRu(ms) {
+
+  const totalSec = Math.max(0, Math.floor(ms / 1000));
+
+  const days = Math.floor(totalSec / 86400);
+
+  const hours = Math.floor((totalSec % 86400) / 3600);
+
+  const minutes = Math.floor((totalSec % 3600) / 60);
+
+  const parts = [];
+
+  if (days > 0) parts.push(`${days} д`);
+
+  if (hours > 0 || days > 0) parts.push(`${hours} ч`);
+
+  parts.push(`${minutes} м`);
+
+  return parts.join(" ");
+
+}
+
+
+
+function getTimelineMetrics(goal) {
+
+  const start = new Date(goal.createdAt).getTime();
+
+  const end = new Date(goal.deadline).getTime();
+
+  const total = Math.max(end - start, 1);
+
+  const now = goal.completed && goal.completedAt ? new Date(goal.completedAt).getTime() : Date.now();
+
+  const elapsed = now - start;
+
+  const remaining = end - now;
+
+  const overdue = !goal.completed && remaining <= 0;
+
+
+
+  let elapsedPct = (elapsed / total) * 100;
+
+  if (overdue) elapsedPct = 100;
+
+  else elapsedPct = Math.min(100, Math.max(0, elapsedPct));
+
+
+
+  const remainingPct = overdue ? 0 : Math.max(0, 100 - elapsedPct);
+
+
+
+  let remainingLabel;
+
+  if (goal.completed) remainingLabel = "Завершено";
+
+  else if (overdue) remainingLabel = "Просрочено";
+
+  else remainingLabel = `Осталось: ${formatDurationRu(remaining)}`;
+
+
+
+  return {
+
+    elapsedPct,
+
+    remainingPct,
+
+    markerPct: elapsedPct,
+
+    overdue,
+
+    elapsedLabel: `Прошло: ${formatDurationRu(Math.max(0, Math.min(elapsed, total)))}`,
+
+    remainingLabel,
+
+    percentLabel: overdue ? "100%" : `${Math.round(elapsedPct)}%`,
+
+  };
+
+}
+
+
+
+function buildTimelineHtml(goal, status) {
+
+  const m = getTimelineMetrics(goal);
+
+  const remainingText = goal.completed ? "Завершено" : m.overdue ? "Просрочено" : m.remainingLabel;
+
+
+
+  return `
+
+    <div class="goal-timeline goal-timeline--${status}" data-timeline aria-label="Временная шкала цели">
+
+      <div class="goal-timeline__labels">
+
+        <span data-tl-elapsed>${m.elapsedLabel}</span>
+
+        <span data-tl-remaining>${remainingText}</span>
+
+      </div>
+
+      <div class="goal-timeline__track">
+
+        <div class="goal-timeline__elapsed" data-tl-bar-elapsed style="width: ${m.elapsedPct}%"></div>
+
+        <div class="goal-timeline__remaining" data-tl-bar-remaining style="left: ${m.elapsedPct}%; width: ${m.remainingPct}%"></div>
+
+        <div class="goal-timeline__marker" data-tl-marker style="left: ${m.markerPct}%"></div>
+
+      </div>
+
+      <div class="goal-timeline__ends">
+
+        <span data-tl-percent>${m.percentLabel}</span>
+
+        <span>Дедлайн</span>
+
+      </div>
+
+    </div>
+
+  `;
+
+}
+
+
+
+function applyTimelineMetrics(el, goal) {
+
+  const status = getStatus(goal);
+
+  const m = getTimelineMetrics(goal);
+
+
+
+  el.className = `goal-timeline goal-timeline--${status}`;
+
+
+
+  const elapsedEl = el.querySelector("[data-tl-elapsed]");
+
+  const remainingEl = el.querySelector("[data-tl-remaining]");
+
+  const barElapsed = el.querySelector("[data-tl-bar-elapsed]");
+
+  const barRemaining = el.querySelector("[data-tl-bar-remaining]");
+
+  const marker = el.querySelector("[data-tl-marker]");
+
+  const percent = el.querySelector("[data-tl-percent]");
+
+
+
+  if (elapsedEl) elapsedEl.textContent = m.elapsedLabel;
+
+  if (remainingEl) {
+
+    remainingEl.textContent = goal.completed
+
+      ? "Завершено"
+
+      : m.overdue
+
+        ? "Просрочено"
+
+        : m.remainingLabel;
+
+  }
+
+  if (barElapsed) barElapsed.style.width = `${m.elapsedPct}%`;
+
+  if (barRemaining) {
+
+    barRemaining.style.left = `${m.elapsedPct}%`;
+
+    barRemaining.style.width = `${m.remainingPct}%`;
+
+  }
+
+  if (marker) marker.style.left = `${m.markerPct}%`;
+
+  if (percent) percent.textContent = m.percentLabel;
+
+}
+
+
+
+function filteredGoals() {
+
+  return goals.filter((g) => {
+
+    if (filter === "completed") return g.completed;
+
+    if (filter === "active") return !g.completed;
+
+    return true;
+
+  });
+
+}
+
+
+
+function renderStats() {
+
+  const active = goals.filter((g) => !g.completed).length;
+
+  const overdue = goals.filter((g) => !g.completed && getStatus(g) === "overdue").length;
+
+  const done = goals.filter((g) => g.completed).length;
+
+
+
+  statsEl.innerHTML = `
+
+    <span class="stat-pill">Активных: <strong>${active}</strong></span>
+
+    <span class="stat-pill">Просрочено: <strong>${overdue}</strong></span>
+
+    <span class="stat-pill">Выполнено: <strong>${done}</strong></span>
+
+  `;
+
+}
+
+
+
+function render() {
+
+  renderStats();
+
+  const list = filteredGoals();
+
+  goalsList.innerHTML = "";
+
+
+
+  if (list.length === 0) {
+
+    emptyState.hidden = false;
+
+    const messages = {
+
+      active: "Нет активных целей. Добавьте новую цель выше.",
+
+      completed: "Пока нет выполненных целей.",
+
+      all: "Пока нет целей. Добавьте первую цель выше.",
+
+    };
+
+    emptyState.textContent = messages[filter] || messages.all;
+
+    return;
+
+  }
+
+
+
+  emptyState.hidden = true;
+
+
+
+  for (const goal of list) {
+
+    const status = getStatus(goal);
+
+    const li = document.createElement("li");
+
+    li.className = `goal-card goal-card--${status}`;
+
+    li.dataset.id = goal.id;
+
+
+
+    const badgeLabels = {
+
+      upcoming: "До дедлайна",
+
+      overdue: "Просрочено",
+
+      completed: "Выполнено",
+
+    };
+
+
+
+    let countdownHtml = "";
+
+    if (!goal.completed) {
+
+      const c = getCountdown(goal.deadline);
+
+      countdownHtml = `
+
+        <div class="countdown" aria-label="Обратный отсчёт">
+
+          <div class="countdown__unit"><span class="countdown__value" data-unit="days">${c.days}</span><span class="countdown__label">дней</span></div>
+
+          <div class="countdown__unit"><span class="countdown__value" data-unit="hours">${pad(c.hours)}</span><span class="countdown__label">часов</span></div>
+
+          <div class="countdown__unit"><span class="countdown__value" data-unit="minutes">${pad(c.minutes)}</span><span class="countdown__label">минут</span></div>
+
+          <div class="countdown__unit"><span class="countdown__value" data-unit="seconds">${pad(c.seconds)}</span><span class="countdown__label">секунд</span></div>
+
+        </div>
+
+      `;
+
+    }
+
+
+
+    const actions =
+
+      status === "completed"
+
+        ? `
+
+          <button type="button" class="btn btn--ghost" data-action="restore">Вернуть в активные</button>
+
+          <button type="button" class="btn btn--danger" data-action="delete">Удалить</button>
+
+        `
+
+        : `
+
+          <button type="button" class="btn btn--success" data-action="complete">Отметить выполненной</button>
+
+          <button type="button" class="btn btn--danger" data-action="delete">Удалить</button>
+
+        `;
+
+
+
+    li.innerHTML = `
+
+      <div class="goal-card__top">
+
+        <h3 class="goal-card__title">${escapeHtml(goal.title)}</h3>
+
+        <span class="goal-card__badge">${badgeLabels[status]}</span>
+
+      </div>
+
+      <p class="goal-card__deadline">Дедлайн: ${formatDeadline(goal.deadline)}</p>
+
+      ${buildTimelineHtml(goal, status)}
+
+      <p class="goal-card__overdue-msg">Дедлайн прошёл — цель не выполнена</p>
+
+      <p class="goal-card__completed-msg">Цель достигнута!</p>
+
+      ${countdownHtml}
+
+      <div class="goal-card__actions">${actions}</div>
+
+    `;
+
+
+
+    goalsList.appendChild(li);
+
+  }
+
+}
+
+
+
+function updateCountdownsOnly() {
+
+  const cards = goalsList.querySelectorAll(".goal-card--upcoming, .goal-card--overdue");
+
+  let needsFullRender = false;
+
+
+
+  for (const card of cards) {
+
+    const id = card.dataset.id;
+
+    const goal = goals.find((g) => g.id === id);
+
+    if (!goal || goal.completed) continue;
+
+
+
+    const status = getStatus(goal);
+
+    const prevStatus = card.classList.contains("goal-card--overdue")
+
+      ? "overdue"
+
+      : card.classList.contains("goal-card--upcoming")
+
+        ? "upcoming"
+
+        : status;
+
+    if (status !== prevStatus) {
+
+      needsFullRender = true;
+
+      break;
+
+    }
+
+
+
+    const c = getCountdown(goal.deadline);
+
+    const set = (unit, val) => {
+
+      const el = card.querySelector(`[data-unit="${unit}"]`);
+
+      if (el) el.textContent = unit === "days" ? String(val) : pad(val);
+
+    };
+
+    set("days", c.days);
+
+    set("hours", c.hours);
+
+    set("minutes", c.minutes);
+
+    set("seconds", c.seconds);
+
+
+
+    const timeline = card.querySelector("[data-timeline]");
+
+    if (timeline) applyTimelineMetrics(timeline, goal);
+
+  }
+
+
+
+  if (needsFullRender) {
+
+    render();
+
+    renderStats();
+
+  } else {
+
+    renderStats();
+
+  }
+
+}
+
+
+
+function startTicker() {
+
+  if (tickTimer) clearInterval(tickTimer);
+
+  tickTimer = setInterval(() => {
+
+    if (filter === "completed") {
+
+      renderStats();
+
+      return;
+
+    }
+
+    updateCountdownsOnly();
+
+  }, 1000);
+
+}
+
+
+
+function escapeHtml(str) {
+
+  const div = document.createElement("div");
+
+  div.textContent = str;
+
+  return div.innerHTML;
+
+}
+
+

@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+
+<html lang="ru">
+
+<head>
+
+  <meta charset="UTF-8" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Цели — обратный отсчёт</title>
+
+  <link rel="stylesheet" href="styles.css" />
+
+</head>
+
+<body>
+
+  <div class="app">
+
+    <header class="header">
+
+      <div class="header__brand">
+
+        <span class="header__icon" aria-hidden="true">◎</span>
+
+        <div>
+
+          <h1 class="header__title">Мои цели</h1>
+
+          <p class="header__subtitle">Отслеживайте достижения с обратным отсчётом</p>
+
+        </div>
+
+      </div>
+
+      <div class="stats" id="stats" aria-live="polite"></div>
+
+    </header>
+
+
+
+    <section class="card card--form" aria-labelledby="form-heading">
+
+      <h2 id="form-heading" class="card__title">Новая цель</h2>
+
+      <form id="goal-form" class="form" novalidate>
+
+        <div class="form__row">
+
+          <label class="form__label" for="goal-title">Название цели</label>
+
+          <input
+
+            id="goal-title"
+
+            name="title"
+
+            type="text"
+
+            class="form__input"
+
+            placeholder="Например: Выучить 500 слов"
+
+            required
+
+            maxlength="120"
+
+            autocomplete="off"
+
+          />
+
+        </div>
+
+        <div class="form__row form__row--split">
+
+          <div class="form__field">
+
+            <label class="form__label" for="goal-date">Дата достижения</label>
+
+            <input id="goal-date" name="date" type="date" class="form__input" required />
+
+          </div>
+
+          <div class="form__field">
+
+            <label class="form__label" for="goal-time">Время</label>
+
+            <input id="goal-time" name="time" type="time" class="form__input" required />
+
+          </div>
+
+        </div>
+
+        <p id="form-error" class="form__error" role="alert" hidden></p>
+
+        <button type="submit" class="btn btn--primary">Добавить цель</button>
+
+      </form>
+
+    </section>
+
+
+
+    <section class="goals-section" aria-labelledby="goals-heading">
+
+      <div class="goals-section__head">
+
+        <h2 id="goals-heading" class="section-title">Активные цели</h2>
+
+        <div class="filter" role="group" aria-label="Фильтр целей">
+
+          <button type="button" class="filter__btn filter__btn--active" data-filter="active">Активные</button>
+
+          <button type="button" class="filter__btn" data-filter="completed">Выполненные</button>
+
+          <button type="button" class="filter__btn" data-filter="all">Все</button>
+
+        </div>
+
+      </div>
+
+      <!-- Timeline bars are rendered per goal card in app.js (.goal-timeline) -->
+
+      <ul id="goals-list" class="goals-list" aria-live="polite"></ul>
+
+      <p id="empty-state" class="empty-state" hidden>
+
+        Пока нет целей. Добавьте первую цель выше.
+
+      </p>
+
+    </section>
+
+  </div>
+
+
+
+  <script src="app.js"></script>
+
+</body>
+
+</html>
+
+
