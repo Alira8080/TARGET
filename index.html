@@ -26,7 +26,7 @@
 
   <link rel="apple-touch-icon" href="icon.svg" />
 
-  <link rel="stylesheet" href="styles.css?v=4" />
+  <link rel="stylesheet" href="styles.css?v=5" />
 
 </head>
 
@@ -62,11 +62,9 @@
 
       <p class="install__text">
 
-        Настоящий маленький виджет на iPhone для сайта сделать нельзя — это умеют только App Store-приложения.
+        <strong>Иконка на экране не показывает напоминания внутри</strong> — это просто кнопка запуска.
 
-        Но можно поставить <strong>иконку на экран</strong> и включить <strong>напоминания на экране блокировки</strong>,
-
-        когда телефон закрыт.
+        Сами напоминания приходят на <strong>экран блокировки</strong>, когда телефон закрыт.
 
       </p>
 
@@ -84,7 +82,11 @@
 
         <button type="button" class="btn btn--primary" id="enable-notifications">Включить напоминания</button>
 
+        <button type="button" class="btn btn--ghost" id="test-notification" hidden>Проверить уведомление</button>
+
         <span class="install__status" id="notification-status" aria-live="polite"></span>
+
+        <div class="install__planned" id="notification-plan" hidden></div>
 
       </div>
 
@@ -188,7 +190,7 @@
 
 
 
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=5"></script>
 
 </body>
 

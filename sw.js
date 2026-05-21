@@ -1,4 +1,4 @@
-const CACHE = "goals-target-v4";
+const CACHE = "goals-target-v5";
 
 const ASSETS = [
   "./",

@@ -2,6 +2,8 @@ const STORAGE_KEY = "goals-tracker-v1";
 
 const NOTIFICATIONS_KEY = "goals-notifications-enabled";
 
+const LAST_OPEN_KEY = "goals-notifications-last-open";
+
 
 
 /** @typedef {{ id: string, title: string, deadline: string, createdAt: string, completed: boolean, completedAt: string | null }} Goal */
@@ -44,7 +46,11 @@ const statsEl = document.getElementById("stats");
 
 const enableNotificationsBtn = document.getElementById("enable-notifications");
 
+const testNotificationBtn = document.getElementById("test-notification");
+
 const notificationStatusEl = document.getElementById("notification-status");
+
+const notificationPlanEl = document.getElementById("notification-plan");
 
 
 
@@ -94,9 +100,21 @@ function init() {
 
   document.addEventListener("visibilitychange", () => {
 
-    if (document.visibilityState === "visible") scheduleReminders();
+    if (document.visibilityState === "visible") {
+
+      checkMissedReminders();
+
+      scheduleReminders();
+
+      markAppOpened();
+
+    }
 
   });
+
+  markAppOpened();
+
+  checkMissedReminders();
 
 }
 
@@ -1238,7 +1256,13 @@ function updateNotificationStatus() {
 
   if (localStorage.getItem(NOTIFICATIONS_KEY) === "1" && Notification.permission === "granted") {
 
-    notificationStatusEl.textContent = "Напоминания включены. Откроются на экране блокировки.";
+    const planned = collectUpcomingReminders().length;
+
+    notificationStatusEl.textContent = planned
+
+      ? `Напоминания включены. Запланировано: ${planned}. Они придут на экран блокировки.`
+
+      : "Напоминания включены. Добавьте активную цель с дедлайном в ближайшие 7 дней.";
 
     if (enableNotificationsBtn) {
 
@@ -1248,17 +1272,31 @@ function updateNotificationStatus() {
 
     }
 
+    if (testNotificationBtn) testNotificationBtn.hidden = false;
+
+    renderNotificationPlan();
+
     return;
 
   }
 
 
 
+  if (testNotificationBtn) testNotificationBtn.hidden = true;
+
+  if (notificationPlanEl) notificationPlanEl.hidden = true;
+
+
+
   if (Notification.permission === "denied") {
 
-    notificationStatusEl.textContent = "Доступ запрещён. Разрешите уведомления в Настройках iPhone → Safari → Уведомления.";
+    notificationStatusEl.textContent = "Доступ запрещён. Настройки → Уведомления → «Мои цели» → включите «Допуск уведомлений».";
 
     if (enableNotificationsBtn) enableNotificationsBtn.disabled = true;
+
+    if (testNotificationBtn) testNotificationBtn.hidden = true;
+
+    if (notificationPlanEl) notificationPlanEl.hidden = true;
 
     return;
 
@@ -1288,7 +1326,31 @@ function setupNotificationsUi() {
 
     const enabled = await requestNotifications();
 
-    if (enabled) scheduleReminders();
+    if (enabled) {
+
+      checkMissedReminders();
+
+      scheduleReminders();
+
+    }
+
+    updateNotificationStatus();
+
+  });
+
+
+
+  testNotificationBtn?.addEventListener("click", async () => {
+
+    await showGoalReminder(
+
+      { id: "test", title: "Тестовая цель" },
+
+      "Проверка уведомлений",
+
+      "если видите это — всё работает"
+
+    );
 
     updateNotificationStatus();
 
@@ -1299,6 +1361,188 @@ function setupNotificationsUi() {
   if (localStorage.getItem(NOTIFICATIONS_KEY) === "1" && Notification.permission === "granted") {
 
     scheduleReminders();
+
+  }
+
+}
+
+
+
+function markAppOpened() {
+
+  localStorage.setItem(LAST_OPEN_KEY, String(Date.now()));
+
+}
+
+
+
+function getReminderDefinitions() {
+
+  return [
+
+    { offset: 24 * 60 * 60 * 1000, title: "Завтра дедлайн", suffix: "остался 1 день" },
+
+    { offset: 60 * 60 * 1000, title: "Скоро дедлайн", suffix: "остался 1 час" },
+
+    { offset: 0, title: "Дедлайн сейчас", suffix: "пора выполнить цель" },
+
+  ];
+
+}
+
+
+
+function collectUpcomingReminders() {
+
+  const now = Date.now();
+
+  const maxDelay = 7 * 24 * 60 * 60 * 1000;
+
+  /** @type {{ fireAt: number, goal: Goal, reminder: { title: string, suffix: string } }[]} */
+
+  const planned = [];
+
+
+
+  for (const goal of goals) {
+
+    if (goal.completed) continue;
+
+    const deadline = new Date(goal.deadline).getTime();
+
+    for (const reminder of getReminderDefinitions()) {
+
+      const fireAt = deadline - reminder.offset;
+
+      const delay = fireAt - now;
+
+      if (delay <= 0 || delay > maxDelay) continue;
+
+      planned.push({ fireAt, goal, reminder });
+
+    }
+
+  }
+
+
+
+  return planned.sort((a, b) => a.fireAt - b.fireAt);
+
+}
+
+
+
+function renderNotificationPlan() {
+
+  if (!notificationPlanEl) return;
+
+  const planned = collectUpcomingReminders();
+
+
+
+  if (localStorage.getItem(NOTIFICATIONS_KEY) !== "1" || Notification.permission !== "granted") {
+
+    notificationPlanEl.hidden = true;
+
+    return;
+
+  }
+
+
+
+  if (planned.length === 0) {
+
+    notificationPlanEl.hidden = false;
+
+    notificationPlanEl.innerHTML = `
+
+      <p class="install__plan-title">Ближайшие напоминания</p>
+
+      <p class="install__plan-empty">Пока не запланировано. Добавьте цель с дедлайном в ближайшие 7 дней и нажмите «Перепланировать».</p>
+
+      <p class="install__plan-note">На iPhone открывайте «Мои цели» раз в день — так напоминания не потеряются.</p>
+
+    `;
+
+    return;
+
+  }
+
+
+
+  const items = planned
+
+    .slice(0, 5)
+
+    .map(({ fireAt, goal, reminder }) => {
+
+      const when = new Date(fireAt).toLocaleString("ru-RU", {
+
+        day: "numeric",
+
+        month: "short",
+
+        hour: "2-digit",
+
+        minute: "2-digit",
+
+      });
+
+      return `<li><strong>${escapeHtml(reminder.title)}</strong> — «${escapeHtml(goal.title)}» · ${when}</li>`;
+
+    })
+
+    .join("");
+
+
+
+  notificationPlanEl.hidden = false;
+
+  notificationPlanEl.innerHTML = `
+
+    <p class="install__plan-title">Ближайшие напоминания</p>
+
+    <ul class="install__plan-list">${items}</ul>
+
+    <p class="install__plan-note">На iPhone открывайте «Мои цели» раз в день — так напоминания не потеряются.</p>
+
+  `;
+
+}
+
+
+
+async function checkMissedReminders() {
+
+  if (localStorage.getItem(NOTIFICATIONS_KEY) !== "1") return;
+
+  if (!notificationsSupported() || Notification.permission !== "granted") return;
+
+
+
+  const now = Date.now();
+
+  const lastOpen = Number(localStorage.getItem(LAST_OPEN_KEY) || "0");
+
+  if (!lastOpen) return;
+
+
+
+  for (const goal of goals) {
+
+    if (goal.completed) continue;
+
+    const deadline = new Date(goal.deadline).getTime();
+
+    for (const reminder of getReminderDefinitions()) {
+
+      const fireAt = deadline - reminder.offset;
+
+      if (fireAt <= lastOpen || fireAt > now) continue;
+
+      await showGoalReminder(goal, reminder.title, reminder.suffix);
+
+    }
 
   }
 
@@ -1360,49 +1604,31 @@ function scheduleReminders() {
 
 
 
-  for (const goal of goals) {
+  for (const { fireAt, goal, reminder } of collectUpcomingReminders()) {
 
-    if (goal.completed) continue;
+    const delay = fireAt - now;
 
-
-
-    const deadline = new Date(goal.deadline).getTime();
-
-    const reminders = [
-
-      { offset: 24 * 60 * 60 * 1000, title: "Завтра дедлайн", suffix: "остался 1 день" },
-
-      { offset: 60 * 60 * 1000, title: "Скоро дедлайн", suffix: "остался 1 час" },
-
-      { offset: 0, title: "Дедлайн сейчас", suffix: "пора выполнить цель" },
-
-    ];
+    if (delay <= 0 || delay > maxDelay) continue;
 
 
 
-    for (const reminder of reminders) {
+    const timeout = setTimeout(() => {
 
-      const fireAt = deadline - reminder.offset;
+      showGoalReminder(goal, reminder.title, reminder.suffix);
 
-      const delay = fireAt - now;
-
-      if (delay <= 0 || delay > maxDelay) continue;
+    }, delay);
 
 
 
-      const timeout = setTimeout(() => {
-
-        showGoalReminder(goal, reminder.title, reminder.suffix);
-
-      }, delay);
-
-
-
-      reminderTimeouts.push(timeout);
-
-    }
+    reminderTimeouts.push(timeout);
 
   }
+
+
+
+  renderNotificationPlan();
+
+  updateNotificationStatus();
 
 }
 
