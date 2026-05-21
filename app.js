@@ -1212,9 +1212,105 @@ function escapeHtml(str) {
 
 
 
+function isIosDevice() {
+
+  return (
+
+    /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+
+  );
+
+}
+
+
+
+function isStandaloneApp() {
+
+  return (
+
+    window.matchMedia("(display-mode: standalone)").matches ||
+
+    /** @type {{ standalone?: boolean }} */ (window.navigator).standalone === true
+
+  );
+
+}
+
+
+
+function hasNotificationApi() {
+
+  return "Notification" in window;
+
+}
+
+
+
+function getNotificationAvailability() {
+
+  if (hasNotificationApi()) {
+
+    return {
+
+      supported: true,
+
+      message: null,
+
+    };
+
+  }
+
+
+
+  if (isIosDevice() && !isStandaloneApp()) {
+
+    return {
+
+      supported: false,
+
+      message:
+
+        "Вы открыли сайт в Safari. Закройте Safari и откройте иконку «Мои цели» на экране «Домой» — там напоминания работают.",
+
+    };
+
+  }
+
+
+
+  if (isIosDevice() && isStandaloneApp()) {
+
+    return {
+
+      supported: false,
+
+      message:
+
+        "На этом iPhone нужна iOS 16.4 или новее. Проверьте: Настройки → Основные → Обновление ПО.",
+
+    };
+
+  }
+
+
+
+  return {
+
+    supported: false,
+
+    message: "Напоминания работают на iPhone через иконку «Мои цели» на экране «Домой» (Safari).",
+
+  };
+
+}
+
+
+
 function notificationsSupported() {
 
-  return "Notification" in window && "serviceWorker" in navigator;
+  return hasNotificationApi();
 
 }
 
@@ -1242,11 +1338,17 @@ function updateNotificationStatus() {
 
   if (!notificationStatusEl) return;
 
-  if (!notificationsSupported()) {
+  const availability = getNotificationAvailability();
 
-    notificationStatusEl.textContent = "Напоминания недоступны в этом браузере.";
+  if (!availability.supported) {
+
+    notificationStatusEl.textContent = availability.message || "Напоминания недоступны в этом браузере.";
 
     if (enableNotificationsBtn) enableNotificationsBtn.disabled = true;
+
+    if (testNotificationBtn) testNotificationBtn.hidden = true;
+
+    if (notificationPlanEl) notificationPlanEl.hidden = true;
 
     return;
 
@@ -1304,7 +1406,11 @@ function updateNotificationStatus() {
 
 
 
-  notificationStatusEl.textContent = "Сначала добавьте сайт на экран «Домой», затем включите напоминания.";
+  notificationStatusEl.textContent = isStandaloneApp()
+
+    ? "Нажмите «Включить напоминания» и разрешите доступ."
+
+    : "Сначала добавьте сайт на экран «Домой», затем откройте через иконку «Мои цели».";
 
   if (enableNotificationsBtn) {
 
